@@ -48,7 +48,11 @@ def add():
 
 @app.route("/listar")
 def listar():
-    return jsonify(carregar())
+    dados = carregar()
+    return jsonify({
+        "dados": dados,
+        "total": "00:00"
+    })
 
 @app.route("/deletar/<int:id>")
 def deletar(id):
