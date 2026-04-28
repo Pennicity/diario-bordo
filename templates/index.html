@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- PWA -->
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#007bff">
+
+<style>
+body { font-family: Arial; background:#f4f6f8; padding:20px; }
+
+.container {
+    max-width:420px;
+    margin:auto;
+    background:white;
+    padding:20px;
+    border-radius:10px;
+}
+
+.linha {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-top:10px;
+}
+
+.linha input {
+    flex:1;
+    padding:10px;
+}
+
+.linha label {
+    width:30px;
+    text-align:center;
+}
+
+input, select, button {
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+}
+
+button {
+    background:#007bff;
+    color:white;
+    border:none;
+}
+
+.item {
+    display:flex;
+    justify-content:space-between;
+    border-bottom:1px solid #ddd;
+    padding:8px 0;
+}
+
+.excluir {
+    text-align:center;
+    color:red;
+    font-weight:bold;
+}
+
+.excluir span {
+    display:block;
+    cursor:pointer;
+    font-size:18px;
+}
+
+.total {
+    font-weight:bold;
+    margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Diário de Bordo</h2>
+
+<form id="formulario">
+
+<div class="linha">
+<input type="text" id="nome" placeholder="Nome" required>
+<label><input type="checkbox" id="salvar_nome"></label>
+</div>
+
+<div class="linha">
+<input type="text" id="cavalo" placeholder="Placa Cavalo" required>
+<label><input type="checkbox" id="salvar_cavalo"></label>
+</div>
+
+<div class="linha">
+<input type="text" id="reboque" placeholder="Placa Reboque" required>
+<label><input type="checkbox" id="salvar_reboque"></label>
+</div>
+
+<input type="date" id="data" required>
+
+<select id="tipo">
+<option>Direção</option>
+<option>Pausa entre Jornada</option>
+<option>Refeição</option>
+<option>Repouso entre Jornada</option>
+</select>
+
+<input type="time" id="inicio" required>
+<input type="time" id="fim" required>
+
+<button type="submit">Salvar</button>
+
+</form>
+
+<h3>Registros</h3>
+<ul id="lista"></ul>
+
+<div class="total" id="total"></div>
+
+<button onclick="exportar()">📊 Exportar</button>
+
+</div>
+
+<script>
+
+document.getElementById("formulario").addEventListener("submit", function(e){
+    e.preventDefault()
+
+    let dados = {
+        nome: nome.value,
+        cavalo: cavalo.value,
+        reboque: reboque.value,
+        data: data.value,
+        tipo: tipo.value,
+        inicio: inicio.value,
+        fim: fim.value
+    }
+
+    fetch('/add', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(dados)
+    }).then(() => {
+
+        salvarConfig()
+
+        if(!salvar_nome.checked) nome.value = ""
+        if(!salvar_cavalo.checked) cavalo.value = ""
+        if(!salvar_reboque.checked) reboque.value = ""
+
+        data.value = ""
+        inicio.value = ""
+        fim.value = ""
+
+        carregar()
+    })
+})
+
+function carregar(){
+    fetch('/listar')
+    .then(r => r.json())
+    .then(resp => {
+
+        lista.innerHTML = ""
+
+        resp.dados.forEach(item => {
+
+            let li = document.createElement("li")
+
+            li.innerHTML = `
+            <div class="item">
+                <div>
+                    ${item.data} | ${item.nome} | ${item.tipo}<br>
+                    ${item.inicio} - ${item.fim}
+                </div>
+                <div class="excluir">
+                    Excluir
+                    <span onclick="deletar(${item.id})">❌</span>
+                </div>
+            </div>
+            `
+
+            lista.appendChild(li)
+        })
+
+        total.innerText = "Total: " + resp.total
+    })
+}
+
+function deletar(id){
+    fetch('/deletar/' + id)
+    .then(() => carregar())
+}
+
+function exportar(){
+    window.location.href = "/exportar"
+    setTimeout(() => carregar(), 1000)
+}
+
+function salvarConfig(){
+    let config = {}
+
+    if(salvar_nome.checked) config.nome = nome.value
+    if(salvar_cavalo.checked) config.cavalo = cavalo.value
+    if(salvar_reboque.checked) config.reboque = reboque.value
+
+    fetch('/salvar_config', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(config)
+    })
+}
+
+fetch('/config')
+.then(r => r.json())
+.then(cfg => {
+    if(cfg.nome){
+    nome.value = cfg.nome
+    salvar_nome.checked = true
+}
+
+if(cfg.cavalo){
+    cavalo.value = cfg.cavalo
+    salvar_cavalo.checked = true
+}
+
+if(cfg.reboque){
+    reboque.value = cfg.reboque
+    salvar_reboque.checked = true
+}
+})
+
+carregar()
+
+// SERVICE WORKER
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/service-worker.js')
+}
+
+</script>
+
+</body>
+</html>
